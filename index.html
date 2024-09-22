@@ -128,7 +128,7 @@
     </style>
 
     <script type="module">
-      import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
+      import { CreateWebWorkerMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
 
       const $ = (el) => document.querySelector(el);
 
@@ -144,16 +144,19 @@
 
       const SELECTED_MODEL = "gemma-2b-it-q4f32_1-MLC";
 
-      const engine = await CreateMLCEngine(SELECTED_MODEL, {
-        initProgressCallback: (progress) => {
-          console.log("initProgressCallback", progress);
-          $info.textContent = `${progress.text}`;
+      const engine = await CreateWebWorkerMLCEngine(
+        new Worker(new URL("./worker.js", import.meta.url), { type: "module" }),
+        SELECTED_MODEL,
+        {
+          initProgressCallback: (progress) => {
+            $info.textContent = `${progress.text}`;
 
-          if (progress.progress === 1) {
-            $button.disabled = false;
-          }
-        },
-      });
+            if (progress.progress === 1) {
+              $button.disabled = false;
+            }
+          },
+        }
+      );
 
       $form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -170,15 +173,32 @@
 
         messages.push(userMessage);
 
-        const reply = await engine.chat.completions.create({
+        const chunks = await engine.chat.completions.create({
           messages,
+          stream: true,
         });
+
+        let reply = "";
+
+        const $botMessage = addMessage("", "bot");
+
+        for await (const chunk of chunks) {
+          const [choice] = chunk.choices;
+          const content = choice?.delta?.content ?? "";
+          reply += content;
+          $botMessage.textContent = reply;
+
+          $container.scrollTop = $container.scrollHeight;
+        }
 
         $button.removeAttribute("disabled");
 
         const botMessage = reply.choices[0].message;
-        messages.push(botMessage);
-        addMessage(botMessage.content, "bot");
+
+        messages.push({
+          role: "bot",
+          content: reply,
+        });
       });
 
       function addMessage(text, sender) {
@@ -197,6 +217,8 @@
 
         // actualizar el scroll para ir al final
         $container.scrollTop = $container.scrollHeight;
+
+        return $text;
       }
     </script>
   </head>
@@ -205,17 +227,7 @@
       <ul>
         <li class="message bot">
           <span>iChat</span>
-          <p>Esta es la respuesta del bot</p>
-        </li>
-
-        <li class="message user">
-          <span>Yo</span>
-          <p>Esta es la respuesta del usuario</p>
-        </li>
-
-        <li class="message user">
-          <span>Yo</span>
-          <p>Esta es una respuesta para ver que no se rompe nada</p>
+          <p>Hola! preguntame algo</p>
         </li>
       </ul>
     </main>

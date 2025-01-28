@@ -128,7 +128,7 @@
     </style>
 
     <script type="module">
-      import { CreateWebWorkerMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
+      import { CreateWebWorkerMLCEngine } from "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.46/+esm";
 
       const $ = (el) => document.querySelector(el);
 
@@ -139,19 +139,25 @@
       const $container = $("main");
       const $button = $("button");
       const $info = $("small");
+      const $loading = $(".loading");
 
       let messages = [];
+      let end = false;
 
-      const SELECTED_MODEL = "gemma-2b-it-q4f32_1-MLC";
+      const SELECTED_MODEL = "Llama-3-8B-Instruct-q4f32_1-MLC-1k";
 
+      // Para que funcione en local, no olvidar correr "Live Server" en Visual Studio Code
       const engine = await CreateWebWorkerMLCEngine(
-        new Worker(new URL("./worker.js", import.meta.url), { type: "module" }),
+        new Worker("./worker.js", { type: "module" }),
         SELECTED_MODEL,
         {
           initProgressCallback: (progress) => {
             $info.textContent = `${progress.text}`;
 
-            if (progress.progress === 1) {
+            if (progress.progress === 1 && !end) {
+              end = true;
+              $loading?.parentNode?.removeChild($loading);
+              addMessage("¡Hola! Preguntame algo", "bot");
               $button.disabled = false;
             }
           },
@@ -225,9 +231,10 @@
   <body>
     <main>
       <ul>
-        <li class="message bot">
-          <span>iChat</span>
-          <p>Hola! preguntame algo</p>
+        <li class="loading">
+          <i></i>
+          <h4>Cargando...</h4>
+          <h5>Puedes ver el progreso en la parte de abajo de la pantalla.</h5>
         </li>
       </ul>
     </main>
